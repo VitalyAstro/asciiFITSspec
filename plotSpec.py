@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-#Vitaly Neustroev, 20/11/2022. Trying to adopt to a newer python and fix bugs.
+#Vitaly Neustroev, 20/11/2022. Trying to adapt the script to a newer python and fix bugs.
+#                              Many things still don't work but X-shooter spectra can be plotted.
 #Tristan Cantat-Gaudin, 28/10/2014.
 #Quickly plot a .fits or ascii spectrum. You can also batch-plot (see below).
 #
