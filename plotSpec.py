@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#Vitaly Neustroev, 20/11/2022. Trying to adopt to a newer python and fix bugs.
 #Tristan Cantat-Gaudin, 28/10/2014.
 #Quickly plot a .fits or ascii spectrum. You can also batch-plot (see below).
 #
@@ -38,7 +39,7 @@
 #	On the plot window: keep "v" key pressed and click on H-alpha or H-beta
 #	line to estimate the radial velocity. (non-relativistic Doppler)
 #
-#			    keep "f" pressed and click points to follow a line profile
+#			    keep "b" pressed and click points to follow a line profile
 #			    then keep "d" pressed and click anywhere to fit a gaussian profile
 #			    keep "x" pressed and click anywhere to erase all the fitted profiles
 #			    (this only works when plotting FITS spectra!)
@@ -52,8 +53,13 @@
 #	
 #		./seefits.py file0.fits file1.txt -color0=red -color1=blue -rv1=23.7 -label1=shifted
 #
+#try:
+	#import pyfits
+	#noPyfits=False
+#except:
+	#noPyfits=True
 try:
-	import pyfits
+	from astropy.io import fits as pyfits
 	noPyfits=False
 except:
 	noPyfits=True
@@ -67,7 +73,7 @@ dark = '-dark' in sys.argv
 if '-steps' in sys.argv:
 	drawstyle='steps-mid'
 else:
-	drawstyle=''
+	drawstyle='default'
 
 
 
@@ -82,16 +88,16 @@ def on_click(event):
 	if event.key=='v':
 		wclick = event.xdata
 		line,vel = wav2radvel(wclick)
-		print vel,'km/s (using',str(line)+')'
+		print(vel,'km/s (using',str(line)+')')
 
-	if event.key=='f': #keep f key pressed and click to follow a line profile
+	if event.key=='b': #keep b key pressed and click to follow a line profile
 		clicksForGaussian.append( [event.xdata,event.ydata] )
 		elementToDelete, = ax.plot(event.xdata,event.ydata,'ro')
 		plotElementsToDelete.append( elementToDelete )
 		#print clicksForGaussian
 	if event.key=='d': #click somewhere while pressing d to fit a gaussian to the defined set of points
 		if len(clicksForGaussian)==0:
-			print 'Keep f pressed and click points, then keep d pressed and click anywhere to fit a gaussian.'
+			print('Keep f pressed and click points, then keep d pressed and click anywhere to fit a gaussian.')
 		else:
 			from scipy.optimize import curve_fit
 			xtofit,ytofit=zip(*clicksForGaussian)
@@ -102,13 +108,13 @@ def on_click(event):
 			elementToDelete, = ax.plot(xtoplot,gaus(xtoplot,*popt),'r-',lw=2)
 			plotElementsToDelete.append( elementToDelete )
 			EW=popt[0]*popt[2]*np.sqrt(2*np.pi)/max(ytofit) #a*sigma*sqrt(2pi), normalising to continuum level!
-			print 'WL=%8.3f  FWHM=%5.3fmA =%3.1fpx  EW=%5.3fmA' % (popt[1],10*2.3548*popt[2],2.35482*popt[2]/wave_step,1000*EW)
+			print('WL=%8.3f  FWHM=%5.3fmA =%3.1fpx  EW=%5.3fmA' % (popt[1],10*2.3548*popt[2],2.35482*popt[2]/wave_step,1000*EW))
 			clicksForGaussian=[]
 	if event.key=='x': #click somwhere while pressing x to delete this line
 		for el in plotElementsToDelete:
 			ax.lines.remove(el)
 		plotElementsToDelete=[]
-		print 'Cleared.'
+		print('Cleared.')
 
 
 
@@ -204,7 +210,7 @@ def actualseefits(argumentsList):
 				hdulist = pyfits.open(fileName)
 				#hdulist.info()			#displays info about the content of the file
 								#(what we use for Daospec has only ONE extension)
-				#print hdulist[0].header	#to print the whole header!
+				print(hdulist[0].header)	#to print the whole header!
 
 				try:
 					pix_start = hdulist[exts[i]].header['CRPIX1']   # starting pixel
@@ -219,7 +225,7 @@ def actualseefits(argumentsList):
 				#(necessary in case CRPIX1 is not 1)
 				flux = hdulist[exts[i]].data
 				waveobs = np.arange(wave_base, wave_base+len(flux)*wave_step, wave_step)
-				#these ligns can solve issues with NumPy "arange":
+				#these lines can solve issues with NumPy "arange":
 				if len(waveobs) == len(flux) + 1:
 					waveobs = waveobs[:-1]
 				#
@@ -227,7 +233,7 @@ def actualseefits(argumentsList):
 				hdulist.close()
 				wave_step1=wave_step
 			else:
-				print fileName,'cannot be read because PyFITS was not found.'
+				print(fileName,'cannot be read because PyFITS was not found.')
 		else:
 			#read the wavelength and flux from input txt:
 			linesToRemove=1 #removes the first line because it is usually a header
@@ -247,13 +253,16 @@ def actualseefits(argumentsList):
 				flux=[]
 				waveobs=[]
 				labels[i]=''
-				print 'Problem reading the spectrum '+fileName
+				print('Problem reading the spectrum '+fileName)
 
 
 
 
 		#########          Plot it:
+		#print(waveobs, flux)
 		plt.plot(waveobs, flux, color=colors[i], label=labels[i],drawstyle=drawstyle)
+		#plt.plot(waveobs, flux)
+		#plt.show()
 	return files[0]	#return the name of the first file
 
 
@@ -275,7 +284,7 @@ if len(sys.argv)==2 and sys.argv[1][0]=='@':
 			argz = line.split()
 			content.append(argz)
 	except:
-		print 'Problem reading file',instructionFile
+		print('Problem reading file',instructionFile)
 	i=0
 	while 1>0:
 		argumentsList=[sys.argv[0]]+content[i]
@@ -316,7 +325,7 @@ else:
 	else:
 		fig=plt.figure(1)
 	title = actualseefits(sys.argv)
-	ax=fig.add_subplot(111)
+	#ax=fig.add_subplot(111)
 	plt.ylabel('flux')
 	plt.xlabel('wavelength')
 	plt.title(title)
