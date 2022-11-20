@@ -1,7 +1,8 @@
 #!/usr/bin/env python
+#Vitaly Neustroev, 20/11/2022. Trying to adapt the script to a newer python and fix bugs.
+#                              Many things still don't work but X-shooter spectra can be plotted.
 #Tristan Cantat-Gaudin, 10/06/2013
-#Conversion of an ASCII table
-#into a FITS spectrum.
+#Conversion of an ASCII table into a FITS spectrum.
 #syntax: ./txt2fits file.txt -options
 #
 #   options: 	-h2	to ignore 2 lines of header
@@ -24,7 +25,8 @@
 #
 import sys
 import os
-import pyfits
+#import pyfits
+from astropy.io import fits as pyfits
 import numpy
 from scipy.interpolate import interp1d
 
@@ -32,10 +34,12 @@ try:
 	infile = sys.argv[1]
 	
 except IndexError:
-	print 'The syntax is:'
-	print sys.argv[0], "file.txt -options"
+	print('The syntax is:')
+	print(sys.argv[0], "file.txt -options")
 	sys.exit()
 
+ObjectName=infile
+DateObs='1111-11-11'
 #read options:
 linesToRemove=0
 multiFactor=1.0
@@ -89,9 +93,9 @@ try:
 	inp = open(infile,"r")
 	lines = inp.readlines()[linesToRemove:]
 	if (linesToRemove==1) and (verbose==True):
-		print 'Ignoring the first line.'
+		print('Ignoring the first line.')
 	if (linesToRemove>1) and (verbose==True):
-		print 'Ignoring the first',linesToRemove,'lines.'
+		print('Ignoring the first',linesToRemove,'lines.')
 	for line in lines:
 		numbers = line.split()
 		arr.append(numbers)
@@ -104,7 +108,7 @@ except:
 ############# RESAMPLE BY INTERPOLATION IF ASKED !!! ############
 if resample==True:
 	if verbose==True:
-		print 'Interpolating...'
+		print('Interpolating...')
 	fluxNew = interp1d(waveobs,flux,kind='linear')
 	flux_new=[]
 	wave_new = [waveobs[0]+k*wave_step for k in range(0,int((waveobs[-1]-waveobs[0])/wave_step))]
@@ -121,14 +125,14 @@ if resample==True:
 #multiply (in case requested)
 waveobs = [el*multiFactor for el in waveobs]
 if (multiFactor!=1) and (verbose==True):
-	print 'Multiplying the wavelength by a factor:',multiFactor
+	print('Multiplying the wavelength by a factor:',multiFactor)
 
 #add some radial velocity:
 if radvel!=0:
 	factor_temp=1+(radvel/299792.458)
 	waveobs = [el*factor_temp for el in waveobs]
 	if verbose==True:
-		print 'Added a radial velocity of',radvel,'km/h.'
+		print('Added a radial velocity of',radvel,'km/h.')
 
 #output name:
 outputSpectrum=infile.split('.txt')[0]+extension
@@ -149,7 +153,7 @@ if fillGaps==True:
 			if waveobs[i]-waveobs[i-1] > 2*wave_step:
 				countGaps=countGaps+1
 				if verbose==True:
-					print 'Filling a gap between '+str(waveobs[i-1])+' and '+str(waveobs[i])+'.'
+					print('Filling a gap between '+str(waveobs[i-1])+' and '+str(waveobs[i])+'.')
 				#keep the list up to flux[i-1] (included)
 				list1=flux[:i]
 				#make a list starting from flux[i] included
@@ -161,7 +165,7 @@ if fillGaps==True:
 				flux=list1+listGap+list2
 	wave_step = (waveobs[-1]-waveobs[0])/(len(flux)-1)
 	if verbose==True:	
-		print countGaps,'gap(s) filled.'
+		print(countGaps,'gap(s) filled.')
 
 
 #limit max flux!
@@ -172,7 +176,7 @@ if maxFlux!=False:
 			flux[i]=maxFlux
 			maxFluxCounter=maxFluxCounter+1
 	if verbose==True:
-		print maxFluxCounter,'pixels with flux higher than',maxFlux,'were found and replaced.'
+		print(maxFluxCounter,'pixels with flux higher than',maxFlux,'were found and replaced.')
 
 
 #remove negative fluxes!
@@ -190,7 +194,7 @@ if fillNegatives==True:
 				flux[i]=0.1
 			negativeCounter=negativeCounter+1
 	if verbose==True:
-		print negativeCounter,'negative pixels found and replaced.'
+		print(negativeCounter,'negative pixels found and replaced.')
 
 
 
@@ -218,7 +222,7 @@ if cutSpikes==True:
 		if el > median+threshold*sigma:
 			flux[widthOfSlice*nbSlices+i]=median+0.3*sigma*(random.random()-0.5)
 	if verbose==True:
-		print spikeCounter,'spike(s) removed, using threshold of',threshold,'sigmas.'
+		print(spikeCounter,'spike(s) removed, using threshold of',threshold,'sigmas.')
 
 
 #create the fits:
@@ -229,12 +233,16 @@ pyfits.writeto(outputSpectrum,flux)
 #insert a header:
 if usehead==False:
 	header = pyfits.getheader(outputSpectrum)
-	header.update('CRVAL1', wave_base, "wavelength zeropoint")
-	header.update('CD1_1', wave_step, "wavelength step")
-	header.update('CDELT1', wave_step, "wavelength step")
-	header.update('CRPIX1', 1.0, "Pixel zeropoint")
-	header.update('NAXIS', 1, "Number of axes")
-	header.update('NAXIS1', len(flux), "Axis length")
+	header.set('CRVAL1', wave_base, "wavelength zeropoint")
+	header.set('CD1_1', wave_step, 'wavelength step')
+	header.set('CDELT1', wave_step, "wavelength step")
+	header.set('CRPIX1', 1.0, "Pixel zeropoint")
+	header.set('CTYPE1', 'pixel   ', "Pixel coordinate system")
+	header.set('NAXIS', 1, "Number of axes")
+	header.set('NAXIS1', len(flux), "Axis length")
+	header.set('OBJECT', ObjectName, 'object name')
+	header.set('DATE-OBS', DateObs, 'date of observations, not set')
+	header.set('EXPTIME', 0, 'exposure, not set')	
 else:	#take the header of another file:
 	if usehead[-1]==']':
 		ext = int( usehead.split('[')[1][:-1] )
@@ -243,12 +251,12 @@ else:	#take the header of another file:
 		ext = 0
 		otherfile = usehead
 	header = pyfits.getheader(otherfile,ext)
-	header.update('CRVAL1', wave_base, "wavelength zeropoint")
-	header.update('CD1_1', wave_step, "wavelength step")
-	header.update('CDELT1', wave_step, "wavelength step")
-	header.update('CRPIX1', 1.0, "Pixel zeropoint")
-	header.update('NAXIS', 1, "Number of axes")
-	header.update('NAXIS1', len(flux), "Axis length")
+	header.set('CRVAL1', wave_base, "wavelength zeropoint")
+	header.set('CD1_1', wave_step, "wavelength step")
+	header.set('CDELT1', wave_step, "wavelength step")
+	header.set('CRPIX1', 1.0, "Pixel zeropoint")
+	header.set('NAXIS', 1, "Number of axes")
+	header.set('NAXIS1', len(flux), "Axis length")
 
 
 os.system('rm -f '+outputSpectrum)
